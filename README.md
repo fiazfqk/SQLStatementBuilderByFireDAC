@@ -1,7 +1,7 @@
 # SQLStatementBuilderByFireDAC
 ## A SQL Statement Builder with FireDAC in Delphi
 
-Usually it takes a lot of time to write parameterized sql insert and update query in Delphi. I wrote SQLStatementBuilderByFireDAC utilities which saved a lot of time to  for writing the insert and update query.
+Usually, it takes a lot of time to write parameterized SQL insert and update queries in Delphi. I wrote SQLStatementBuilderByFireDAC utilities which saved a lot of time for writing the insert and update query.
 
 You can download the latest release, test and speed up your database application production.
 
