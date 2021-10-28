@@ -8,7 +8,7 @@ You can download the latest release, test and speed up your database application
 ### Samples
 Check out latest release. If you have any questions or suggestion, please contact, make your pull request or create an issue.
 
-<img src="images/SampleImg1001.png">
+<img src="Images/SampleImg1001.png">
 
 ### Version History
 * 1.0.0.1
