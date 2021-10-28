@@ -11,44 +11,58 @@ uses
   FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait, FireDAC.Stan.Param,
   FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt, FireDAC.Phys.MSSQLDef,
   FireDAC.Phys.ODBCBase, FireDAC.Phys.MSSQL, Data.DB, FireDAC.Comp.DataSet,
-  FireDAC.Comp.Client;
+  FireDAC.Comp.Client, Vcl.ExtCtrls, FireDAC.Phys.MySQLDef, FireDAC.Phys.MySQL,
+  FireDAC.Stan.ExprFuncs, FireDAC.Phys.SQLiteDef, FireDAC.Phys.SQLite;
 
 type
   TfrmSqlBuilder = class(TForm)
     Memo1: TMemo;
     edtCName: TEdit;
-    Label1: TLabel;
+    lblComponetName: TLabel;
     chbSqlWith: TCheckBox;
     cmbSqlType: TComboBox;
-    Label2: TLabel;
+    lblSQLQueryType: TLabel;
     btnSqlBuilder: TButton;
-    Label3: TLabel;
+    lblTableName: TLabel;
     Memo2: TMemo;
-    Label5: TLabel;
+    lblDatabaseName: TLabel;
     edtUserName: TEdit;
-    Label6: TLabel;
+    lblUserName: TLabel;
     edtPassword: TEdit;
-    Label7: TLabel;
+    lblPassword: TLabel;
     cmbTblName: TComboBox;
     FDConnection1: TFDConnection;
     FDQuery1: TFDQuery;
     FDPhysMSSQLDriverLink1: TFDPhysMSSQLDriverLink;
     edtServerName: TEdit;
-    Label8: TLabel;
-    Label9: TLabel;
+    lblServerName: TLabel;
+    lblDriverID: TLabel;
     edtDriverID: TEdit;
     cmbDatabase: TComboBox;
-    btnGetCatalogNames: TButton;
+    btnGetDBNames: TButton;
     btnGetTblName: TButton;
     FDManager: TFDManager;
     btnDBConnect: TButton;
+    pnlRight: TPanel;
+    pnlLeft: TPanel;
+    Splitter1: TSplitter;
+    cbbServerType: TComboBox;
+    lblServerType: TLabel;
+    pnlRightTop: TPanel;
+    pnlRightBottom: TPanel;
+    FDPhysMySQLDriverLink1: TFDPhysMySQLDriverLink;
+    btnDBDisconnect: TButton;
+    Splitter2: TSplitter;
+    FDPhysSQLiteDriverLink1: TFDPhysSQLiteDriverLink;
     procedure btnSqlBuilderClick(Sender: TObject);
-    procedure btnGetCatalogNamesClick(Sender: TObject);
+    procedure btnGetDBNamesClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure cmbTblNameClick(Sender: TObject);
     procedure cmbTblNameChange(Sender: TObject);
     procedure btnDBConnectClick(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure cbbServerTypeChange(Sender: TObject);
+    procedure btnDBDisconnectClick(Sender: TObject);
   private
   FStrListKeyField : TStringList;
   FStrKeyField : String;
@@ -66,7 +80,7 @@ type
 var
   frmSqlBuilder: TfrmSqlBuilder;
   UserName,PassWord,InitialCatalog,Server,DriverID : String;
-
+  IniSection : String;
 implementation
 
 {$R *.dfm}
@@ -80,16 +94,16 @@ begin
   ExePath := TPath.GetDirectoryName(GetModuleName(HInstance));
   ini := TIniFile.Create(TPath.Combine(ExePath, 'DBCredential.ini'));
   try
-    UserName:= ini.ReadString('DB','UserName','');
-    edtUserName.Text := ini.ReadString('DB','UserName','');
-    PassWord:= ini.ReadString('DB','PassWord','');
-    edtPassword.Text := ini.ReadString('DB','PassWord','');
-    InitialCatalog:= ini.ReadString('DB','InitialCatalog','');
+    UserName:= ini.ReadString(IniSection,'UserName','');
+    edtUserName.Text := ini.ReadString(IniSection,'UserName','');
+    PassWord:= ini.ReadString(IniSection,'PassWord','');
+    edtPassword.Text := ini.ReadString(IniSection,'PassWord','');
+    InitialCatalog:= ini.ReadString(IniSection,'InitialCatalog','');
     //edtDatabase.Text := ini.ReadString('DB','InitialCatalog','');
-    Server:= ini.ReadString('DB','Server','');
-    edtServerName.Text := ini.ReadString('DB','Server','');
-    DriverID:= ini.ReadString('DB','DriverID','');
-    edtDriverID.Text := ini.ReadString('DB','DriverID','');
+    Server:= ini.ReadString(IniSection,'Server','');
+    edtServerName.Text := ini.ReadString(IniSection,'Server','');
+    DriverID:= ini.ReadString(IniSection,'DriverID','');
+    edtDriverID.Text := ini.ReadString(IniSection,'DriverID','');
   finally
     ini.Free;
   end;
@@ -100,6 +114,7 @@ var Params : TStrings;
 begin
 Result:= False;
   btnDBConnect.Caption := 'Not Connected';
+  ReadConnectionINI();
 
   Params := TStringList.Create;
   {Private Connection}
@@ -111,7 +126,7 @@ Result:= False;
         Params.Add('Database='+cmbDatabase.Text);
     Params.Add('DriverID='+edtDriverID.Text);
     Params.Add('Pooled= True');
-    FDManager.AddConnectionDef('MSSQL_Connection', 'MSSQL', Params);
+    FDManager.AddConnectionDef('SQLQueryBuilder_Connection', edtDriverID.Text, Params);
    finally
    Params.Free;
    end;
@@ -119,7 +134,7 @@ Result:= False;
   if FDConnection1.Connected then FDConnection1.Connected := False;
   FDConnection1.LoginPrompt := False;
     try
-     FDConnection1.ConnectionDefName := 'MSSQL_Connection';
+     FDConnection1.ConnectionDefName := 'SQLQueryBuilder_Connection';
      FDConnection1.Connected := True;
      btnDBConnect.Caption := 'DB Connected';
      Result:= True;
@@ -134,11 +149,14 @@ end;
 
 procedure TfrmSqlBuilder.btnDBConnectClick(Sender: TObject);
 begin
+   btnDBDisconnectClick(self);
+
    if DBConnect() then
    begin
    try
-   btnGetCatalogNamesClick(self);
+   btnGetDBNamesClick(self);
    if (cmbDatabase.Text <> '') then cmbTblNameClick(Self);
+   btnDBDisconnect.Enabled:= True;
    except
     on E : Exception do
     begin
@@ -375,11 +393,25 @@ end;
 
 procedure TfrmSqlBuilder.FormShow(Sender: TObject);
 begin
-  ReadConnectionINI();
   self.Caption := self.Caption + ' - ' + ExeReadVerInfo();
 end;
 
-procedure TfrmSqlBuilder.btnGetCatalogNamesClick(Sender: TObject);
+procedure TfrmSqlBuilder.btnDBDisconnectClick(Sender: TObject);
+begin
+    if FDConnection1.Connected then begin
+    FDManager.Close;
+    FDConnection1.Connected := False;
+    FDManager.Close;
+    cmbDatabase.Clear;
+    cmbDatabase.Items.Clear;
+    cmbDatabase.ItemIndex:= -1;
+    cmbTblName.Clear;
+    cmbTblName.Items.Clear;
+    cmbTblName.ItemIndex:= -1;
+   end;
+end;
+
+procedure TfrmSqlBuilder.btnGetDBNamesClick(Sender: TObject);
 begin
  if (edtServerName.Text <> '') and (edtDriverID.Text <> '') and (edtUserName.Text <> '') and
     (edtPassword.Text <> '') then
@@ -390,9 +422,18 @@ begin
       FDConnection1.GetCatalogNames('', cmbDatabase.Items);
       cmbDatabase.ItemIndex := 0;
     end else begin
-       if DBConnect then btnGetCatalogNamesClick(self);
+       if DBConnect then btnGetDBNamesClick(self);
     end;
   end
+end;
+
+procedure TfrmSqlBuilder.cbbServerTypeChange(Sender: TObject);
+begin
+  case cbbServerType.ItemIndex of
+   0: begin edtDriverID.Text:= 'MSSQL'; IniSection:= 'MSSQLDB'; end;
+   1: begin edtDriverID.Text:= 'MySQL';  IniSection:= 'MySQLDB'; end;
+  end;
+  ReadConnectionINI();
 end;
 
 procedure TfrmSqlBuilder.cmbTblNameChange(Sender: TObject);
@@ -412,7 +453,7 @@ begin
   end;
  end else
       begin
-       if DBConnect then btnGetCatalogNamesClick(self);
+       if DBConnect then btnGetDBNamesClick(self);
       end;
 end;
 
@@ -424,7 +465,7 @@ if (edtServerName.Text <> '') and (edtDriverID.Text <> '') and (edtUserName.Text
   if FDConnection1.Connected then
     begin
     cmbTblName.Items.Clear;
-    FDConnection1.GetTableNames(cmbDatabase.Text, '', '', cmbTblName.Items, [osMy], [tkTable], False);
+    FDConnection1.GetTableNames(cmbDatabase.Text, '', '', cmbTblName.Items, [osMy, osOther], [tkTable], False);
     cmbTblName.ItemIndex := 0;
      if cmbTblName.Text <> '' then  cmbTblNameChange(self);
 

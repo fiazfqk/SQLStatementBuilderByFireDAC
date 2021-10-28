@@ -2,7 +2,8 @@ program ProjSqlStatementBuilder;
 
 uses
   Vcl.Forms,
-  USQLMain in 'USQLMain.pas' {frmSqlBuilder};
+  USQLMain in 'USQLMain.pas' {frmSqlBuilder},
+  UExeInfo in 'UExeInfo.pas';
 
 {$R *.res}
 
